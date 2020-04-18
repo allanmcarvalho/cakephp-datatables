@@ -1,19 +1,42 @@
 <?php
+/**
+ * Copyright (c) 2018. Allan Carvalho
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ */
 
 namespace DataTables\Controller;
 
-use Cake\Controller\Controller;
+use Cake\Core\Configure;
 use Cake\Error\FatalErrorException;
 use Cake\Http\ServerRequest;
-use \Cake\Utility\Inflector;
+use Cake\ORM\Query;
+use Cake\ORM\Table;
+use Cake\ORM\TableRegistry;
+use Cake\Utility\Inflector;
 use Cake\View\ViewBuilder;
+use Controller;
+use DataTables\Controller\Component\DataTablesComponent;
+use DataTables\View\DataTablesView;
 
 /**
  * CakePHP DataTablesComponent
  *
- * @property \DataTables\Controller\Component\DataTablesComponent $DataTables
- * @property ServerRequest|null request
+ * @property DataTablesComponent $DataTables
+ * @property Table $DtConfigTable
  * @method ViewBuilder viewBuilder()
+ * @method ServerRequest getRequest()
+ * @method Controller set($name, $value = null)
  * @author allan
  */
 trait DataTablesAjaxRequestTrait
@@ -31,7 +54,7 @@ trait DataTablesAjaxRequestTrait
 
     /**
      * Set a function to be exec before ajax request
-     * @param callable $dataTableBeforeAjaxFunction
+     * @param callable $dataTableBeforeAjaxFunction set callable function
      */
     public function setDataTableBeforeAjaxFunction(callable $dataTableBeforeAjaxFunction)
     {
@@ -43,7 +66,7 @@ trait DataTablesAjaxRequestTrait
 
     /**
      * Set a function to be exec after ajax request
-     * @param callable $dataTableAfterAjaxFunction
+     * @param callable $dataTableAfterAjaxFunction set callable function
      */
     public function setDataTableAfterAjaxFunction(callable $dataTableAfterAjaxFunction)
     {
@@ -59,19 +82,22 @@ trait DataTablesAjaxRequestTrait
      */
     public function getDataTablesContent($config)
     {
-        if (!empty($this->dataTableBeforeAjaxFunction) and is_callable($this->dataTableBeforeAjaxFunction)) {
+        if (!empty($this->dataTableBeforeAjaxFunction) && is_callable($this->dataTableBeforeAjaxFunction)) {
             call_user_func($this->dataTableBeforeAjaxFunction);
         }
 
-        $this->request->allowMethod('ajax');
+        if (Configure::read('debug') !== true) {
+            $this->getRequest()->allowMethod('ajax');
+        }
         $configName = $config;
         $config = $this->DataTables->getDataTableConfig($configName);
-        $params = $this->request->getQuery();
-        $this->viewBuilder()->setClassName('DataTables.DataTables');
+        $params = $this->getRequest()->getQuery();
+        $this->viewBuilder()->setClassName(DataTablesView::class);
         $this->viewBuilder()->setTemplate(Inflector::underscore($configName));
-
-        if(empty($this->{$config['table']})) {
-            $this->loadModel($config['table']);
+        if (empty($this->{$config['table']})) {
+            $this->DtConfigTable = TableRegistry::getTableLocator()->get($config['table']);
+        } else {
+            $this->DtConfigTable = $this->{$config['table']};
         }
 
         // searching all fields
@@ -81,13 +107,13 @@ trait DataTablesAjaxRequestTrait
                 if ($column['searchable'] == true) {
                     $explodedColumnName = explode(".", $column['name']);
                     if (count($explodedColumnName) == 2) {
-                        if ($explodedColumnName[0] === $this->{$config['table']}->getAlias()) {
-                            $columnType = !empty($this->{$config['table']}->getSchema()->getColumn($explodedColumnName[1])['type']) ? $this->{$config['table']}->getSchema()->getColumn($explodedColumnName[1])['type'] : 'string';
+                        if ($explodedColumnName[0] === $this->DtConfigTable->getAlias()) {
+                            $columnType = !empty($this->DtConfigTable->getSchema()->getColumn($explodedColumnName[1])['type']) ? $this->DtConfigTable->getSchema()->getColumn($explodedColumnName[1])['type'] : 'string';
                         } else {
-                            $columnType = !empty($this->{$config['table']}->{$explodedColumnName[0]}->getSchema()->getColumn($explodedColumnName[1])['type']) ? $this->{$config['table']}->getSchema()->getColumn($explodedColumnName[1])['type'] : 'string';
+                            $columnType = !empty($this->DtConfigTable->{$explodedColumnName[0]}->getSchema()->getColumn($explodedColumnName[1])['type']) ? $this->DtConfigTable->getSchema()->getColumn($explodedColumnName[1])['type'] : 'string';
                         }
                     } else {
-                        $columnType = !empty($this->{$config['table']}->getSchema()->getColumn($column['name'])['type']) ? $this->{$config['table']}->getSchema()->getColumn($column['name'])['type'] : 'string';
+                        $columnType = !empty($this->DtConfigTable->getSchema()->getColumn($column['name'])['type']) ? $this->DtConfigTable->getSchema()->getColumn($column['name'])['type'] : 'string';
                     }
                     switch ($columnType) {
                         case "integer":
@@ -129,13 +155,13 @@ trait DataTablesAjaxRequestTrait
 
             $explodedColumnName = explode(".", $paramColumn['name']);
             if (count($explodedColumnName) == 2) {
-                if ($explodedColumnName[0] === $this->{$config['table']}->getAlias()) {
-                    $columnType = !empty($this->{$config['table']}->getSchema()->getColumn($explodedColumnName[1])['type']) ? $this->{$config['table']}->getSchema()->getColumn($explodedColumnName[1])['type'] : 'string';
+                if ($explodedColumnName[0] === $this->DtConfigTable->getAlias()) {
+                    $columnType = !empty($this->DtConfigTable->getSchema()->getColumn($explodedColumnName[1])['type']) ? $this->DtConfigTable->getSchema()->getColumn($explodedColumnName[1])['type'] : 'string';
                 } else {
-                    $columnType = !empty($this->{$config['table']}->{$explodedColumnName[0]}->getSchema()->getColumn($explodedColumnName[1])['type']) ? $this->{$config['table']}->getSchema()->getColumn($explodedColumnName[1])['type'] : 'string';
+                    $columnType = !empty($this->DtConfigTable->{$explodedColumnName[0]}->getSchema()->getColumn($explodedColumnName[1])['type']) ? $this->DtConfigTable->getSchema()->getColumn($explodedColumnName[1])['type'] : 'string';
                 }
             } else {
-                $columnType = !empty($this->{$config['table']}->getSchema()->getColumn($paramColumn['name'])['type']) ? $this->{$config['table']}->getSchema()->getColumn($paramColumn['name'])['type'] : 'string';
+                $columnType = !empty($this->DtConfigTable->getSchema()->getColumn($paramColumn['name'])['type']) ? $this->DtConfigTable->getSchema()->getColumn($paramColumn['name'])['type'] : 'string';
             }
             switch ($columnType) {
                 case "integer":
@@ -163,6 +189,9 @@ trait DataTablesAjaxRequestTrait
                 $order[$config['columnsIndex'][$item['column']]] = $item['dir'];
             }
         }
+        if (!empty($order)) {
+            unset($config['queryOptions']['order']);
+        }
 
         foreach ($config['columns'] as $key => $item) {
             if ($item['database'] == true) {
@@ -172,22 +201,25 @@ trait DataTablesAjaxRequestTrait
 
         if (!empty($config['databaseColumns'])) {
             foreach ($config['databaseColumns'] as $key => $item) {
-                $select[] = $item;
+                $select[] = $key;
+                if ($item['searchable']) {
+                    $where['OR']["{$key} like"] = "%{$params['search']['value']}%";
+                }
             }
         }
 
         /** @var array $select */
-        $results = $this->{$config['table']}->find($config['finder'], $config['queryOptions'])
+        /** @var Query $results */
+        $results = $this->DtConfigTable->find($config['finder'], $config['queryOptions'])
             ->select($select)
             ->where($where)
             ->limit($params['length'])
             ->offset($params['start'])
             ->order($order);
 
-
         $resultInfo = [
             'draw' => (int)$params['draw'],
-            'recordsTotal' => (int)$this->{$config['table']}->find('all', $config['queryOptions'])->count(),
+            'recordsTotal' => (int)$this->DtConfigTable->find('all', $config['queryOptions'])->count(),
             'recordsFiltered' => (int)$results->count()
         ];
 

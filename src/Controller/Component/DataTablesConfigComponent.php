@@ -1,15 +1,25 @@
 <?php
-
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+/**
+ * Copyright (c) 2018. Allan Carvalho
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
  */
 
 namespace DataTables\Controller\Component;
 
 use Cake\Controller\Component;
-use Cake\Utility\Inflector;
+use Cake\Controller\Controller;
+use Cake\Error\FatalErrorException;
 
 /**
  * CakePHP DataTableConfigComponent
@@ -68,24 +78,29 @@ class DataTablesConfigComponent extends Component
         $this->dataTableConfig[$name]['finder'] = "all";
         $this->dataTableConfig[$name]['trait'] = "DataTablesAjaxRequestTrait";
         $urls = [];
+        /** @var Controller $controller */
         $controller = $this->getController();
-        foreach (class_uses($controller) as $trait) {
+        $traits = $this->classUsesDeep($controller);
+        if (empty($traits)) {
+            throw new FatalErrorException('Cannot find any traits loaded in controller.');
+        }
+        foreach ($traits as $trait) {
             if (!in_array($trait, $this->supportedTraits)) {
                 continue;
             }
             switch ($trait) {
                 case 'DataTables\Controller\DataTablesAjaxRequestTrait':
                     $urls['DataTablesAjaxRequestTrait'] = [
-                        'controller' => $controller->name,
+                        'controller' => $controller->getName(),
                         'action' => 'getDataTablesContent',
                     ];
-                break;
+                    break;
                 case 'DataTables\Controller\FocSearchRequestTrait':
                     $urls['FocSearchRequestTrait'] = [
-                        'controller' => $controller->name,
+                        'controller' => $controller->getName(),
                         'action' => 'getFocSearchDataTablesContent',
                     ];
-                break;
+                    break;
             }
         }
         $this->dataTableConfig[$name]['urls'] = $urls;
@@ -173,12 +188,16 @@ class DataTablesConfigComponent extends Component
 
     /**
      * Set a database column to use in data render
-     * @param string $name
+     * @param string $name a database table column name
+     * @param bool $searchable if true, the search query will find this column too
      * @return $this
      */
-    public function databaseColumn($name)
+    public function databaseColumn($name, $searchable = false)
     {
-        $this->dataTableConfig[$this->currentConfig]['databaseColumns'][] = $name;
+        $this->dataTableConfig[$this->currentConfig]['databaseColumns'][$name] = [
+            'name' => $name,
+            'searchable' => (bool)$searchable
+        ];
 
         return $this;
     }
@@ -240,7 +259,7 @@ class DataTablesConfigComponent extends Component
      */
     public function setTrait($name)
     {
-        $supportedTraits = array_map(function($val) {
+        $supportedTraits = array_map(function ($val) {
             $vals = explode('\\', $val);
             return array_pop($vals);
         }, $this->supportedTraits);
@@ -250,6 +269,30 @@ class DataTablesConfigComponent extends Component
         $this->dataTableConfig[$this->currentConfig]['trait'] = $name;
 
         return $this;
+    }
+
+    private function classUsesDeep($class, $autoload = false)
+    {
+        $traits = [];
+
+        // Get traits of all parent classes
+        do {
+            $traits = array_merge(class_uses($class, $autoload), $traits);
+        } while ($class = get_parent_class($class));
+
+        // Get traits of all parent traits
+        $traitsToSearch = $traits;
+        while (!empty($traitsToSearch)) {
+            $newTraits = class_uses(array_pop($traitsToSearch), $autoload);
+            $traits = array_merge($newTraits, $traits);
+            $traitsToSearch = array_merge($newTraits, $traitsToSearch);
+        };
+
+        foreach ($traits as $trait => $same) {
+            $traits = array_merge(class_uses($trait, $autoload), $traits);
+        }
+
+        return array_unique($traits);
     }
 
 }
