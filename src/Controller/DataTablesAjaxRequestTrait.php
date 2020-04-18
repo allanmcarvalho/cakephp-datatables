@@ -165,12 +165,12 @@ trait DataTablesAjaxRequestTrait
             }
             switch ($columnType) {
                 case "integer":
-                    if (is_numeric($params['search']['value'])) {
+                    if (is_numeric($paramColumn['search']['value'])) {
                         $where[] = [$paramColumn['name'] => $columnSearch];
                     }
                     break;
                 case "decimal":
-                    if (is_numeric($params['search']['value'])) {
+                    if (is_numeric($paramColumn['search']['value'])) {
                         $where[] = [$paramColumn['name'] => $columnSearch];
                     }
                     break;
