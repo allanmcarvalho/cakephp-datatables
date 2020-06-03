@@ -105,43 +105,7 @@ trait DataTablesAjaxRequestTrait
         if (!empty($params['search']['value'])) {
             foreach ($config['columns'] as $column) {
                 if ($column['searchable'] == true) {
-                    $explodedColumnName = explode(".", $column['name']);
-                    if (count($explodedColumnName) == 2) {
-                        if ($explodedColumnName[0] === $this->DtConfigTable->getAlias()) {
-                            $columnType = !empty($this->DtConfigTable->getSchema()->getColumn($explodedColumnName[1])['type']) ? $this->DtConfigTable->getSchema()->getColumn($explodedColumnName[1])['type'] : 'string';
-                        } else {
-                            $columnType = !empty($this->DtConfigTable->{$explodedColumnName[0]}->getSchema()->getColumn($explodedColumnName[1])['type']) ? $this->DtConfigTable->getSchema()->getColumn($explodedColumnName[1])['type'] : 'string';
-                        }
-                    } else {
-                        $columnType = !empty($this->DtConfigTable->getSchema()->getColumn($column['name'])['type']) ? $this->DtConfigTable->getSchema()->getColumn($column['name'])['type'] : 'string';
-                    }
-                    switch ($columnType) {
-                        case "integer":
-                            if (is_numeric($params['search']['value'])) {
-                                $where['OR']["{$column['name']}"] = $params['search']['value'];
-                            }
-                            break;
-                        case "decimal":
-                            if (is_numeric($params['search']['value'])) {
-                                $where['OR']["{$column['name']}"] = $params['search']['value'];
-                            }
-                            break;
-                        case "string":
-                            $where['OR']["{$column['name']} like"] = "%{$params['search']['value']}%";
-                            break;
-                        case "text":
-                            $where['OR']["{$column['name']} like"] = "%{$params['search']['value']}%";
-                            break;
-                        case "boolean":
-                            $where['OR']["{$column['name']} like"] = "%{$params['search']['value']}%";
-                            break;
-                        case "datetime":
-                            $where['OR']["{$column['name']} like"] = "%{$params['search']['value']}%";
-                            break;
-                        default:
-                            $where['OR']["{$column['name']} like"] = "%{$params['search']['value']}%";
-                            break;
-                    }
+                    $where['OR']["CONVERT({$column['name']},char) like"] = "%{$params['search']['value']}%";
                 }
             }
         }
@@ -152,35 +116,7 @@ trait DataTablesAjaxRequestTrait
             if (!$columnSearch || !$paramColumn['searchable']) {
                 continue;
             }
-
-            $explodedColumnName = explode(".", $paramColumn['name']);
-            if (count($explodedColumnName) == 2) {
-                if ($explodedColumnName[0] === $this->DtConfigTable->getAlias()) {
-                    $columnType = !empty($this->DtConfigTable->getSchema()->getColumn($explodedColumnName[1])['type']) ? $this->DtConfigTable->getSchema()->getColumn($explodedColumnName[1])['type'] : 'string';
-                } else {
-                    $columnType = !empty($this->DtConfigTable->{$explodedColumnName[0]}->getSchema()->getColumn($explodedColumnName[1])['type']) ? $this->DtConfigTable->getSchema()->getColumn($explodedColumnName[1])['type'] : 'string';
-                }
-            } else {
-                $columnType = !empty($this->DtConfigTable->getSchema()->getColumn($paramColumn['name'])['type']) ? $this->DtConfigTable->getSchema()->getColumn($paramColumn['name'])['type'] : 'string';
-            }
-            switch ($columnType) {
-                case "integer":
-                    if (is_numeric($paramColumn['search']['value'])) {
-                        $where[] = [$paramColumn['name'] => $columnSearch];
-                    }
-                    break;
-                case "decimal":
-                    if (is_numeric($paramColumn['search']['value'])) {
-                        $where[] = [$paramColumn['name'] => $columnSearch];
-                    }
-                    break;
-                case 'string':
-                    $where[] = ["{$paramColumn['name']} like" => "%$columnSearch%"];
-                    break;
-                default:
-                    $where[] = ["{$paramColumn['name']} like" => "%$columnSearch%"];
-                    break;
-            }
+            $where[] = ["CONVERT({$paramColumn['name']},char) like" => "%$columnSearch%"];
         }
 
         $order = [];
