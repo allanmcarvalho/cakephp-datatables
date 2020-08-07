@@ -143,6 +143,11 @@ trait DataTablesAjaxRequestTrait
                 }
             }
         }
+        
+        if (!empty($config['queryOptions']['forceSelectAll']) && $config['queryOptions']['forceSelectAll'] === true) {
+            $select = [];
+            unset($config['queryOptions']['forceSelectAll']);
+        }
 
         /** @var array $select */
         /** @var Query $results */
